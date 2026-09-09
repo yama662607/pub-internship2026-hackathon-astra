@@ -121,12 +121,10 @@ export function QuizResult({ result, userAnswer, onNext, onBackToStart }: QuizRe
         </Card>
       )}
 
-      {result.categoryDetails.length > 0 && (
+      {!isIndividual && result.categoryDetails.length > 0 && (
         <Card>
           <CardHeader>
-            <CardTitle className="text-lg">
-              {isIndividual ? "購入カテゴリ 5選（正解ユーザー）" : "カテゴリ別 購入者数（正解集団）"}
-            </CardTitle>
+            <CardTitle className="text-lg">カテゴリ別 購入者数（正解集団）</CardTitle>
           </CardHeader>
           <CardContent>
             <ol className="flex flex-col gap-2">
