@@ -9,6 +9,7 @@ interface QuizResultProps {
   result: AnswerResponse;
   userAnswer: { ageBand: AgeBand; gender: Gender; marriageStatus: MarriageStatus };
   onNext: () => void;
+  onBackToStart?: () => void;
 }
 
 function MatchBadge({ matched }: { matched: boolean }) {
@@ -17,16 +18,23 @@ function MatchBadge({ matched }: { matched: boolean }) {
     : <Badge variant="secondary">×</Badge>;
 }
 
-export function QuizResult({ result, userAnswer, onNext }: QuizResultProps) {
+export function QuizResult({ result, userAnswer, onNext, onBackToStart }: QuizResultProps) {
+  const isIndividual = result.questionType === "individual";
+
   return (
     <div className="flex flex-col gap-6 w-full max-w-2xl mx-auto px-4 py-8">
       <Card>
         <CardHeader>
-          <CardTitle className="text-center text-2xl">
-            {result.matchCount === 3
-              ? "全問正解！"
-              : `${result.matchCount} / 3 一致`}
-          </CardTitle>
+          <div className="flex flex-col items-center gap-1">
+            <Badge variant="outline" className="mb-1">
+              {isIndividual ? "個人モード" : "集団モード"}
+            </Badge>
+            <CardTitle className="text-center text-2xl">
+              {result.matchCount === 3
+                ? "全問正解！"
+                : `${result.matchCount} / 3 一致`}
+            </CardTitle>
+          </div>
         </CardHeader>
         <CardContent className="flex flex-col gap-4">
           <div className="grid grid-cols-[auto_1fr_1fr_auto] gap-x-4 gap-y-2 text-sm items-center">
@@ -92,29 +100,33 @@ export function QuizResult({ result, userAnswer, onNext }: QuizResultProps) {
         </Card>
       )}
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-lg">集団の人数</CardTitle>
-          <p className="text-xs text-muted-foreground">
-            年齢判明・男性/女性・既婚/未婚の顧客が対象（全70,113人中49,339人 = 70.4%）
-          </p>
-        </CardHeader>
-        <CardContent className="flex flex-col gap-2 text-sm">
-          <div className="flex justify-between">
-            <span>正解の集団</span>
-            <span className="font-medium">{result.correctGroupSize.toLocaleString()} 人</span>
-          </div>
-          <div className="flex justify-between">
-            <span>あなたが選んだ集団</span>
-            <span className="font-medium">{result.answerGroupSize.toLocaleString()} 人</span>
-          </div>
-        </CardContent>
-      </Card>
+      {!isIndividual && result.correctGroupSize !== undefined && result.answerGroupSize !== undefined && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg">集団の人数</CardTitle>
+            <p className="text-xs text-muted-foreground">
+              年齢判明・男性/女性・既婚/未婚の顧客が対象（全70,113人中49,339人 = 70.4%）
+            </p>
+          </CardHeader>
+          <CardContent className="flex flex-col gap-2 text-sm">
+            <div className="flex justify-between">
+              <span>正解の集団</span>
+              <span className="font-medium">{result.correctGroupSize.toLocaleString()} 人</span>
+            </div>
+            <div className="flex justify-between">
+              <span>あなたが選んだ集団</span>
+              <span className="font-medium">{result.answerGroupSize.toLocaleString()} 人</span>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {result.categoryDetails.length > 0 && (
         <Card>
           <CardHeader>
-            <CardTitle className="text-lg">カテゴリ別 購入者数（正解集団）</CardTitle>
+            <CardTitle className="text-lg">
+              {isIndividual ? "購入カテゴリ 5選（正解ユーザー）" : "カテゴリ別 購入者数（正解集団）"}
+            </CardTitle>
           </CardHeader>
           <CardContent>
             <ol className="flex flex-col gap-2">
@@ -124,7 +136,9 @@ export function QuizResult({ result, userAnswer, onNext }: QuizResultProps) {
                     {cat.rank}
                   </Badge>
                   <span className="flex-1">{cat.categoryPath}</span>
-                  <span className="text-muted-foreground">{cat.buyers.toLocaleString()} 人</span>
+                  {cat.buyers !== undefined && (
+                    <span className="text-muted-foreground">{cat.buyers.toLocaleString()} 人</span>
+                  )}
                 </li>
               ))}
             </ol>
@@ -132,9 +146,16 @@ export function QuizResult({ result, userAnswer, onNext }: QuizResultProps) {
         </Card>
       )}
 
-      <Button size="lg" onClick={onNext} className="w-full">
-        次の問題へ
-      </Button>
+      <div className="flex flex-col gap-3 w-full">
+        <Button size="lg" onClick={onNext} className="w-full">
+          次の問題へ
+        </Button>
+        {onBackToStart && (
+          <Button variant="ghost" size="sm" onClick={onBackToStart} className="w-full text-muted-foreground">
+            モード選択に戻る
+          </Button>
+        )}
+      </div>
     </div>
   );
 }

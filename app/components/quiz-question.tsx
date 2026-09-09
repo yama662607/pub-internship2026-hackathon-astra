@@ -35,11 +35,20 @@ export function QuizQuestion({ question, onAnswer, isSubmitting }: QuizQuestionP
     <div className="flex flex-col gap-6 w-full max-w-2xl mx-auto px-4 py-8">
       <Card>
         <CardHeader>
-          <CardTitle className="text-lg">
-            購入者数ランキング TOP5
-          </CardTitle>
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-lg">
+              {question.questionType === "individual"
+                ? "👤 ある個人の購入カテゴリ 5選"
+                : "👥 購入者数ランキング TOP5"}
+            </CardTitle>
+            <Badge variant="outline">
+              {question.questionType === "individual" ? "個人モード" : "集団モード"}
+            </Badge>
+          </div>
           <p className="text-sm text-muted-foreground">
-            ある集団が多く買ったカテゴリです。何人が買ったかの順位であり、金額ではありません。
+            {question.questionType === "individual"
+              ? "ある1人のユーザーが実際に購入した5つの異なる商品カテゴリです。"
+              : "ある集団が多く買ったカテゴリです。何人が買ったかの順位であり、金額ではありません。"}
           </p>
           <p className="text-xs text-muted-foreground">
             集計期間: {question.period.start} 〜 {question.period.end}
@@ -61,7 +70,9 @@ export function QuizQuestion({ question, onAnswer, isSubmitting }: QuizQuestionP
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-lg">この集団はどんな人たち？</CardTitle>
+          <CardTitle className="text-lg">
+            {question.questionType === "individual" ? "この人はどんな人？" : "この集団はどんな人たち？"}
+          </CardTitle>
           <p className="text-sm text-muted-foreground">
             年代・性別・婚姻状況を予想してください
           </p>

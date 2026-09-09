@@ -24,17 +24,35 @@ const QUESTION_ID_MAX_LENGTH = 64;
  * 正解と回答後の開示データを取得する。クライアントが送ってくる正解・点数は使わない。
  */
 const Q3_CORRECT_ANSWER = `
-  SELECT
-      QUESTION_ID          AS "questionId",
-      ANSWER_AGE_BAND      AS "correctAgeBand",
-      ANSWER_GENDER        AS "correctGender",
-      ANSWER_MARRIAGE      AS "correctMarriageStatus",
-      ANSWER_GROUP_SIZE    AS "correctGroupSize",
-      TOP5                 AS "categoryDetails",
-      DATA_VERSION         AS "dataVersion"
-  FROM TEAM_A_DB.DEVELOPMENT.DAY5_QUIZ_QUESTIONS
-  WHERE IS_ACTIVE
-    AND QUESTION_ID = ?
+  WITH all_banks AS (
+    SELECT
+        'group'              AS "questionType",
+        QUESTION_ID          AS "questionId",
+        ANSWER_AGE_BAND      AS "correctAgeBand",
+        ANSWER_GENDER        AS "correctGender",
+        ANSWER_MARRIAGE      AS "correctMarriageStatus",
+        ANSWER_GROUP_SIZE    AS "correctGroupSize",
+        TOP5                 AS "categoryDetails",
+        DATA_VERSION         AS "dataVersion"
+    FROM TEAM_A_DB.DEVELOPMENT.DAY5_QUIZ_QUESTIONS
+    WHERE IS_ACTIVE
+    UNION ALL
+    SELECT
+        'individual'         AS "questionType",
+        QUESTION_ID          AS "questionId",
+        ANSWER_AGE_BAND      AS "correctAgeBand",
+        ANSWER_GENDER        AS "correctGender",
+        ANSWER_MARRIAGE      AS "correctMarriageStatus",
+        NULL                 AS "correctGroupSize",
+        CATEGORIES           AS "categoryDetails",
+        DATA_VERSION         AS "dataVersion"
+    FROM TEAM_A_DB.DEVELOPMENT.DAY5_QUIZ_INDIVIDUAL_QUESTIONS
+    WHERE IS_ACTIVE
+  )
+  SELECT *
+  FROM all_banks
+  WHERE "questionId" = ?
+  LIMIT 1
 `;
 
 /**
@@ -138,7 +156,7 @@ function parseCategoryDetails(raw: unknown): AnswerResponse["categoryDetails"] {
       return {
         rank: Number(entry.rank),
         categoryPath: String(entry.categoryPath),
-        buyers: Number(entry.buyers),
+        buyers: entry.buyers !== undefined ? Number(entry.buyers) : undefined,
       };
     })
     .sort((a, b) => a.rank - b.rank);
@@ -162,7 +180,7 @@ export async function POST(
   const { questionId, answer } = validated;
 
   try {
-    // 正解はここで取り直す。リクエストに含まれる正解や点数は一切使わない。
+    // 問題バンク（集団または個人）から正解を取得する
     const correctRows = await querySnowflake(Q3_CORRECT_ANSWER, {
       binds: [questionId],
       warehouse: WAREHOUSE,
@@ -173,6 +191,7 @@ export async function POST(
     }
 
     const row = correctRows[0];
+    const isIndividual = row.questionType === "individual";
     const correctAgeBand = row.correctAgeBand;
     const correctGender = row.correctGender;
     const correctMarriageStatus = row.correctMarriageStatus;
@@ -188,7 +207,7 @@ export async function POST(
     }
 
     const correctGroupSize = Number(row.correctGroupSize);
-    if (!Number.isFinite(correctGroupSize) || correctGroupSize <= 0) {
+    if (!isIndividual && (!Number.isFinite(correctGroupSize) || correctGroupSize <= 0)) {
       console.error("[answer] 正解集団の人数が0以下です", { questionId });
       return NextResponse.json({ error: "問題データが不正です。" }, { status: 500 });
     }
@@ -199,11 +218,14 @@ export async function POST(
       marriageStatus: correctMarriageStatus,
     };
 
-    const sizeRows = await querySnowflake(Q4_ANSWER_GROUP_SIZE, {
-      binds: [answer.ageBand, answer.gender, answer.marriageStatus],
-      warehouse: WAREHOUSE,
-    });
-    const answerGroupSize = Number(sizeRows[0]?.answerGroupSize ?? 0);
+    let answerGroupSize: number | undefined = undefined;
+    if (!isIndividual) {
+      const sizeRows = await querySnowflake(Q4_ANSWER_GROUP_SIZE, {
+        binds: [answer.ageBand, answer.gender, answer.marriageStatus],
+        warehouse: WAREHOUSE,
+      });
+      answerGroupSize = Number(sizeRows[0]?.answerGroupSize ?? 0);
+    }
 
     const { match, matchCount } = scoreAnswer(answer, correct);
 
@@ -252,11 +274,12 @@ export async function POST(
 
     return NextResponse.json({
       questionId,
+      questionType: isIndividual ? "individual" : "group",
       correct,
       match,
       matchCount,
       answerGroupSize,
-      correctGroupSize,
+      correctGroupSize: isIndividual ? undefined : correctGroupSize,
       categoryDetails: parseCategoryDetails(row.categoryDetails),
       aiOpponent,
     });

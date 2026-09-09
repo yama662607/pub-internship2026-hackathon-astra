@@ -7,6 +7,7 @@ import type {
   AgeBand,
   Gender,
   MarriageStatus,
+  QuestionType,
 } from "@/lib/quiz-types";
 import { QuizStart } from "@/components/quiz-start";
 import { QuizQuestion } from "@/components/quiz-question";
@@ -18,16 +19,18 @@ type Phase = "start" | "loading-question" | "question" | "submitting" | "result"
 
 export default function Home() {
   const [phase, setPhase] = useState<Phase>("start");
+  const [currentMode, setCurrentMode] = useState<QuestionType>("group");
   const [question, setQuestion] = useState<QuestionResponse | null>(null);
   const [result, setResult] = useState<AnswerResponse | null>(null);
   const [userAnswer, setUserAnswer] = useState<{ ageBand: AgeBand; gender: Gender; marriageStatus: MarriageStatus } | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  async function fetchQuestion() {
+  async function fetchQuestion(mode: QuestionType = currentMode) {
     setError(null);
+    setCurrentMode(mode);
     setPhase("loading-question");
     try {
-      const res = await fetch("/api/question", { cache: "no-store" });
+      const res = await fetch(`/api/question?type=${mode}`, { cache: "no-store" });
       if (!res.ok) {
         const body = await res.json().catch(() => null);
         throw new Error(body?.error ?? `HTTP ${res.status}`);
@@ -69,7 +72,15 @@ export default function Home() {
     setQuestion(null);
     setResult(null);
     setUserAnswer(null);
-    fetchQuestion();
+    fetchQuestion(currentMode);
+  }
+
+  function handleBackToStart() {
+    setQuestion(null);
+    setResult(null);
+    setUserAnswer(null);
+    setError(null);
+    setPhase("start");
   }
 
   return (
@@ -108,7 +119,12 @@ export default function Home() {
       )}
 
       {phase === "result" && result && userAnswer && (
-        <QuizResult result={result} userAnswer={userAnswer} onNext={handleNext} />
+        <QuizResult
+          result={result}
+          userAnswer={userAnswer}
+          onNext={handleNext}
+          onBackToStart={handleBackToStart}
+        />
       )}
     </>
   );

@@ -18,10 +18,13 @@ export interface CategoryRanking {
   categoryPath: string; // CATEGORY_LEVEL_1 || COALESCE(' > ' || CATEGORY_LEVEL_2, '')
 }
 
+export type QuestionType = "group" | "individual";
+
 // GET /api/question レスポンス
 export interface QuestionResponse {
   questionId: string; // 不透明ID（正解属性を埋め込まない）
-  rankingMethod: "buyer_count";
+  questionType: QuestionType;
+  rankingMethod: "buyer_count" | "individual_random5";
   period: { start: string; end: string }; // "2023-04-01" ~ "2024-03-31"
   categories: CategoryRanking[]; // TOP5
   answerOptions: {
@@ -55,12 +58,13 @@ export interface AnswerResponse {
     marriageStatus: boolean;
   };
   matchCount: number;        // 一致した属性の数（0〜3）
-  answerGroupSize: number;   // 回答条件に一致する顧客数
-  correctGroupSize: number;  // 正解条件に一致する顧客数
+  questionType: QuestionType;
+  answerGroupSize?: number;   // 回答条件に一致する顧客数（集団モードのみ）
+  correctGroupSize?: number;  // 正解条件に一致する顧客数（集団モードのみ）
   categoryDetails: {
     rank: number;
     categoryPath: string;
-    buyers: number;
+    buyers?: number;          // 個人モードでは未定義
   }[];
   aiOpponent?: {
     model: string;
